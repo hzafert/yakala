@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yakala — Aklına Geleni Kaçırma</title>
+<style>
+  :root {
+    --bg: #0a0d12;
+    --surface: #11151c;
+    --surface2: #171c25;
+    --border: #222a36;
+    --text: #eef2f6;
+    --muted: #8494a8;
+    --accent: #3b82f6;
+    --wa: #22c55e;
+    --crit: #e0635f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh; padding: 16px;
+    max-width: 640px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  h1 { font-size: 20px; font-weight: 800; letter-spacing: .5px; }
+  h1 span { color: var(--accent); }
+  .spacer { flex: 1; }
+  .save-status { font-size: 11px; color: var(--muted); }
+  .btn {
+    background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 11px; font-size: 12px; cursor: pointer;
+  }
+  .btn:hover { background: #1d2430; }
+  h1 { display: flex; align-items: center; gap: 7px; }
+  h1 svg { width: 20px; height: 20px; }
+  h1 span { color: var(--text); }
+
+  /* ---- yakalama alanı ---- */
+  .capture {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px;
+  }
+  #noteInput {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    color: var(--text); font-size: 17px; line-height: 1.45; padding: 12px 14px;
+    width: 100%; min-height: 84px; resize: vertical; outline: none; font-family: inherit;
+  }
+  #noteInput:focus { border-color: var(--accent); }
+  #noteInput::placeholder { color: #4b586c; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .big-row { display: flex; gap: 20px; justify-content: center; padding: 6px 0 2px; }
+  .cbtn {
+    width: 70px; height: 70px; border-radius: 50%; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+    transition: transform .06s, box-shadow .2s, background .2s;
+  }
+  .cbtn svg { width: 30px; height: 30px; }
+  .cbtn:active { transform: scale(.93); }
+  .cbtn:disabled { opacity: .3; cursor: default; }
+  #bigBtn { background: var(--accent); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
+  #bigBtn:hover { background: #4a8ef7; }
+  #waBtn { background: var(--wa); box-shadow: 0 6px 20px rgba(34,197,94,.28); }
+  #waBtn:hover { background: #2fd36a; }
+  .cbtn.listening { background: var(--crit); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(224,99,95,.5); } 50% { box-shadow: 0 0 0 12px rgba(224,99,95,0); } }
+
+  /* ---- liste ---- */
+  .list-h { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .list-h h2 { font-size: 14px; }
+  .list-h .count { font-size: 11px; color: var(--muted); }
+  .items { display: flex; flex-direction: column; gap: 7px; }
+  .item {
+    background: var(--surface); border-radius: 12px; padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .item.done { opacity: .4; }
+  .item.done .itext { text-decoration: line-through; }
+  .item.tint-a1 { background: #101c31; }
+  .item.tint-b1 { background: #0f261b; }
+  .item.tint-c  { background: #2a1614; }
+  .item input[type=checkbox] { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+  .ibody { flex: 1; min-width: 0; }
+  .itext { font-size: 15px; line-height: 1.4; cursor: text; overflow-wrap: break-word; }
+  .imeta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .imeta .delege { color: var(--crit); font-weight: 700; }
+  .prio { display: inline-flex; flex-shrink: 0; }
+  .pb {
+    border: none; color: #fff; font-size: 12px; font-weight: 700;
+    padding: 5px 9px; cursor: pointer; line-height: 1.2;
+  }
+  .pb.l { border-radius: 20px 0 0 20px; }
+  .pb.r { border-radius: 0 20px 20px 0; margin-left: 1px; }
+  .edit, .del {
+    background: var(--surface2); border: 1px solid #2e3949; border-radius: 9px;
+    color: #c6d0de; cursor: pointer; line-height: 1;
+    font-size: 15px; padding: 8px 10px; flex-shrink: 0;
+  }
+  .edit:hover, .edit:active { color: var(--accent); border-color: var(--accent); }
+  .del:hover, .del:active { color: var(--crit); border-color: var(--crit); }
+  .edit.wab { color: var(--wa); border-color: rgba(34,197,94,.55); }
+  .inline-input {
+    background: var(--surface2); border: 1px solid var(--accent); border-radius: 8px;
+    color: var(--text); font-size: 15px; padding: 7px 10px; width: 100%; outline: none; font-family: inherit;
+  }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 8px; line-height: 1.6; }
+  .done-toggle { margin-top: 14px; text-align: center; }
+
+  /* ---- kişiler & whatsapp ---- */
+  .contacts {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .contacts h3 { font-size: 14px; margin-bottom: 4px; }
+  .c-row { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 4px 2px; }
+  .c-row .c-name { font-weight: 600; }
+  .c-row .c-alias { color: var(--accent); font-size: 12px; }
+  .c-row .c-phone { color: var(--muted); font-size: 12px; flex: 1; text-align: right; }
+  .c-add { display: flex; gap: 6px; flex-wrap: wrap; }
+  .c-add input {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 13px; padding: 8px 10px; outline: none; font-family: inherit;
+    flex: 1; min-width: 110px;
+  }
+  .c-add input:focus { border-color: var(--accent); }
+  #waBar {
+    display: none; position: fixed; left: 16px; right: 16px; bottom: 20px; z-index: 60;
+    max-width: 608px; margin: 0 auto; gap: 8px; align-items: stretch;
+  }
+  #waBar a {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: var(--wa); color: #fff; text-decoration: none;
+    padding: 16px; border-radius: 14px; font-weight: 800; font-size: 16px;
+    box-shadow: 0 8px 28px rgba(34,197,94,.45);
+  }
+  #waBar button { border-radius: 14px; font-size: 15px; }
+  .wa-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .wa-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px; display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 320px;
+    max-height: 70vh; overflow-y: auto;
+  }
+  .wa-box b { font-size: 14px; margin-bottom: 4px; }
+  .wa-box .btn { padding: 12px; font-size: 14px; text-align: left; }
+  footer { margin-top: 20px; text-align: center; line-height: 1.6; }
+
+  /* ---- ilk kullanım tanıtımı ---- */
+  .onboard { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; padding: 22px; background: rgba(5,7,10,.74); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+  .onboard.show { display: flex; }
+  .ob-card { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 28px 22px 20px; width: 100%; max-width: 384px; box-shadow: 0 24px 70px rgba(0,0,0,.55); animation: obIn .28s ease; }
+  @keyframes obIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+  .ob-head { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .ob-head svg { width: 24px; height: 24px; }
+  .ob-head h2 { font-size: 20px; font-weight: 800; letter-spacing: .3px; }
+  .ob-sub { text-align: center; font-size: 13px; color: var(--muted); line-height: 1.55; margin: 8px 4px 22px; }
+  .ob-steps { display: flex; flex-direction: column; gap: 15px; margin-bottom: 24px; }
+  .ob-step { display: flex; gap: 13px; align-items: center; }
+  .ob-ic { flex-shrink: 0; width: 38px; height: 38px; border-radius: 11px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
+  .ob-ic svg { width: 19px; height: 19px; }
+  .ob-step p { font-size: 13px; line-height: 1.5; color: var(--muted); }
+  .ob-step p b { color: var(--text); font-weight: 700; }
+  .ob-start { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 13px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 22px rgba(59,130,246,.32); }
+  .ob-start:active { transform: scale(.98); }
+  .how-link { background: none; border: none; color: #3a4459; font: inherit; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 4px; }
+  .how-link:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5h5L10 22l8.5-11.5h-5L13 2z" fill="#3b82f6"/></svg><span>Yakala</span></h1>
+  <div class="spacer"></div>
+  <span class="save-status" id="saveStatus">✓</span>
+  <button class="btn" onclick="toggleContacts()" title="Kişiler (WhatsApp)">👥</button>
+  <button class="btn" onclick="copyData()" title="Veriyi panoya kopyala">📋</button>
+  <button class="btn" onclick="pasteData()" title="Panodan veri yükle">📥</button>
+  <button class="btn" onclick="shareData()" title="Dosya olarak paylaş / indir">📤</button>
+</header>
+
+<section class="capture">
+  <textarea id="noteInput" placeholder="Söyle ya da yaz… sona önem: A1…C3" autofocus></textarea>
+  <div class="big-row">
+    <button id="bigBtn" class="cbtn" onclick="bigTap('note')" title="Konuş — nota kaydet" aria-label="Konuş"></button>
+    <button id="waBtn" class="cbtn" onclick="bigTap('wa')" title="WhatsApp — ismi ve mesajı söyle" aria-label="WhatsApp"></button>
+  </div>
+</section>
+
+<section class="contacts" id="contactsPanel" style="display:none">
+  <h3>👥 Kişiler</h3>
+  <div id="contactRows"></div>
+  <div class="c-add">
+    <input id="cName" placeholder="İsim">
+    <input id="cAlias" placeholder="Söyleyeceğin ad (ops.)">
+    <input id="cPhone" placeholder="+90 5xx xxx xx xx">
+    <button class="btn" onclick="addContact()">+ Ekle</button>
+  </div>
+  <div class="hint">Numarayı ülke koduyla gir (+90…). Baştaki 0'ı ben düzeltirim. "mesaj İSİM …" komutu ve 📲 düğmesi bu listeyi kullanır.</div>
+</section>
+
+<div id="waBar"></div>
+
+<div class="list-h">
+  <h2>📌 Yakalananlar</h2>
+  <span class="count" id="countEl"></span>
+  <div class="spacer"></div>
+</div>
+<div class="items" id="itemsEl"></div>
+<div class="done-toggle">
+  <button class="btn" id="doneToggleBtn" onclick="showDone=!showDone;render()"></button>
+</div>
+
+<div class="onboard" id="onboard">
+  <div class="ob-card">
+    <div class="ob-head">
+      <svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5h5L10 22l8.5-11.5h-5L13 2z" fill="#3b82f6"/></svg>
+      <h2>Yakala</h2>
+    </div>
+    <p class="ob-sub">Aklına geleni saniyede yakala. Notların yalnızca bu telefonda kalır.</p>
+    <div class="ob-steps">
+      <div class="ob-step">
+        <span class="ob-ic" style="color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/></svg></span>
+        <p><b>Söyle ya da yaz.</b> Mavi butona bas, aklındakini söyle — otomatik kaydedilir.</p>
+      </div>
+      <div class="ob-step">
+        <span class="ob-ic" style="color:var(--accent)">A1</span>
+        <p><b>Önceliğini ekle.</b> Sona “A1”–“C3” de: A kritik · B önemli · C delege — 1 hemen · 2 yakında · 3 esnek. Söylemezsen B2.</p>
+      </div>
+      <div class="ob-step">
+        <span class="ob-ic" style="color:var(--wa)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <p><b>Bitince işaretle.</b> Tamamlanan alta düşer, kaybolmaz; kalıcı silmek için ✕.</p>
+      </div>
+      <div class="ob-step">
+        <span class="ob-ic" style="color:var(--wa)">W</span>
+        <p><b>WhatsApp.</b> 👥’den kişi ekle; “İsim + mesaj” de → sohbet hazır açılır.</p>
+      </div>
+    </div>
+    <button class="ob-start" onclick="closeOnboard()">Başla</button>
+  </div>
+</div>
+
+<footer><button class="how-link" onclick="showOnboard()">nasıl çalışır?</button></footer>
+
+<script>
+const STORAGE_KEY = 'yakala-data-v1';
+// Kişiler artık koda gömülü değil — her kullanıcı kendi kişilerini 👥 ekranından ekler,
+// veri yalnızca kendi cihazında (localStorage + IndexedDB) tutulur.
+const DEFAULT_CONTACTS = []; // paylaşım sürümü: kişilerini 👥 panelinden ekle
+let showDone = false;
+let data = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return migrate(JSON.parse(raw));
+  } catch (e) { console.warn(e); }
+  // boş başlangıçta da migrate çalışmalı — gömülü kişiler her koşulda yüklensin
+  return migrate({ items: [] });
+}
+function migrate(d) {
+  (d.items || []).forEach(i => {
+    if (!i.imp) i.imp = 'B';
+    if (!i.urg) i.urg = 2;
+  });
+  if (!Array.isArray(d.items)) d.items = [];
+  if (!Array.isArray(d.contacts)) d.contacts = [];
+  // eski sürümlerin listeye düşürdüğü WhatsApp kayıtlarını temizle — liste yalnız to-do
+  d.items = d.items.filter(i => !(i.text || '').startsWith('📲'));
+  // (İsteğe bağlı) gömülü varsayılan kişiler — genel sürümde boş, kimseye ait numara içermez.
+  DEFAULT_CONTACTS.forEach(dc => {
+    if (!d.contacts.some(c => waPhone(c.phone) === waPhone(dc.phone))) d.contacts.push({ ...dc });
+  });
+  return d;
+}
+let saveTimer;
+// --- IndexedDB yedek deposu ---
+// file:// sayfalarında Chrome localStorage'ı kapanışta temizleyebiliyor (asıl kök neden).
+// IndexedDB file:// üzerinde çok daha güvenilir kalıcı olduğundan her yazıyı İKİ yere
+// (localStorage + IndexedDB) yapıyoruz; açılışta hangisinde daha yeni veri varsa onu alıyoruz.
+let _idb = null;
+function idbOpen() {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open('yakala-db', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    } catch (e) { res(null); }
+  });
+}
+async function idbSave(obj) {
+  try {
+    _idb = _idb || await idbOpen();
+    if (!_idb) return;
+    _idb.transaction('kv', 'readwrite').objectStore('kv').put(obj, STORAGE_KEY);
+  } catch (e) {}
+}
+async function idbLoad() {
+  try {
+    _idb = _idb || await idbOpen();
+    if (!_idb) return null;
+    return await new Promise(res => {
+      const g = _idb.transaction('kv', 'readonly').objectStore('kv').get(STORAGE_KEY);
+      g.onsuccess = () => res(g.result || null);
+      g.onerror = () => res(null);
+    });
+  } catch (e) { return null; }
+}
+function save() {
+  data._savedAt = Date.now();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); setStatus('✓'); }
+  catch (e) { console.warn('localStorage kaydı başarısız', e); setStatus('!'); }
+  idbSave(data); // yedek — localStorage silinse bile burada kalır
+}
+// Her değişiklikte HEMEN (senkron) kaydet — debounce'lu setTimeout mobil/PWA'da
+// uygulama kapanınca fırlamadan öldüğü için notlar kayboluyordu. Artık ekleme/silme/
+// tamamlama anında hem localStorage'a hem IndexedDB'ye yazılıyor.
+function touch() { clearTimeout(saveTimer); save(); }
+// Açılışta IndexedDB yedeğiyle uzlaştır: localStorage boş/eskiyse IDB'deki veriyi geri yükle.
+async function reconcile() {
+  const idbData = await idbLoad();
+  if (idbData && (idbData.items || idbData.contacts)) {
+    const localAt = data._savedAt || 0, idbAt = idbData._savedAt || 0;
+    const localEmpty = (data.items || []).length === 0;
+    const idbHasMore = (idbData.items || []).length > 0;
+    if (idbAt > localAt || (localEmpty && idbHasMore)) {
+      data = migrate(idbData); // IDB daha yeni/dolu → onu benimse ve localStorage'ı da geri doldur
+      save(); render();
+      return;
+    }
+  }
+  idbSave(data); // IDB yok/eski → güncelle
+}
+function setStatus(s) { document.getElementById('saveStatus').textContent = s; }
+function flash(msg) {
+  setStatus(msg);
+  setTimeout(() => setStatus('✓'), 4000);
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function esc(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---------- öncelik: konuşmanın sonundan A1..C3 yakala ----------
+// "…yarın ara A1" / "… be iki" / "… c 3" gibi biten kalıpları tanır
+function parsePrio(raw) {
+  const m = raw.match(/(?:^|[\s,.;:–—-])(a|be|b|ce|c)\s*[-–.,:]?\s*(bir|iki|üç|uc|1|2|3)[\s.!?]*$/i);
+  if (!m) return { text: raw.trim(), imp: 'B', urg: 2, spoken: false };
+  const imp = { a: 'A', b: 'B', c: 'C' }[m[1][0].toLowerCase()];
+  const urg = { bir: 1, iki: 2, 'üç': 3, uc: 3 }[m[2].toLowerCase()] || parseInt(m[2]);
+  const text = raw.slice(0, m.index).trim();
+  if (!text) return { text: raw.trim(), imp: 'B', urg: 2, spoken: false };
+  return { text, imp, urg, spoken: true };
+}
+function prioColor(imp, urg) {
+  if (imp === 'C') return '#e0635f';
+  if (imp === 'A') return urg === 1 ? '#3b82f6' : urg === 2 ? '#6d96e8' : '#93aede';
+  return urg === 1 ? '#22a06b' : urg === 2 ? '#58b47c' : '#84c29c';
+}
+function tintClass(x) {
+  if (x.imp === 'C') return 'tint-c';
+  if (x.imp === 'A' && x.urg === 1) return 'tint-a1';
+  if (x.imp === 'B' && x.urg === 1) return 'tint-b1';
+  return '';
+}
+function prioRank(x) { return (x.urg - 1) * 3 + (x.imp.charCodeAt(0) - 65); }
+
+// ---------- kişiler & whatsapp ----------
+let showContacts = false;
+const trLower = s => (s || '').toLocaleLowerCase('tr');
+function toggleContacts() {
+  showContacts = !showContacts;
+  document.getElementById('contactsPanel').style.display = showContacts ? 'flex' : 'none';
+}
+function addContact() {
+  const n = document.getElementById('cName').value.trim();
+  const p = document.getElementById('cPhone').value.trim();
+  const a = document.getElementById('cAlias').value.trim();
+  if (!n || !p) return;
+  data.contacts.push({ id: uid(), name: n, phone: p, alias: a });
+  document.getElementById('cName').value = '';
+  document.getElementById('cAlias').value = '';
+  document.getElementById('cPhone').value = '';
+  touch(); render();
+}
+function delContact(id) { data.contacts = data.contacts.filter(c => c.id !== id); touch(); render(); }
+function findContact(nameToken) {
+  // Türkçe ekleri tolere et: "Gökhan'a"/"gökhana"/"melikeye"/"aşkıma" da tanınsın.
+  const strip = s => trLower(s).replace(/['’`´].*$/, '').trim(); // apostrof + sonrası eki at
+  const q = strip(nameToken);
+  if (q.length < 2) return null;
+  const keysOf = c => [c.alias, c.name, (c.name || '').split(/\s+/)[0]]
+        .filter(Boolean).map(strip);
+  const test = fn => data.contacts.find(c => keysOf(c).some(fn));
+  return test(k => k === q)                              // birebir
+      || test(k => k.length >= 3 && q.startsWith(k))     // söylenen ek almış: "gökhana" → gökhan
+      || test(k => q.length >= 3 && k.startsWith(q))     // kısmi/çok kelimeli: "gök" veya "melike şenol"
+      || null;
+}
+// numarayı wa.me biçimine çevir: rakam dışını at, baştaki 0 → 90, çıplak 5xx → 90'lı
+function waPhone(p) {
+  let d = (p || '').replace(/\D/g, '');
+  if (d.startsWith('0')) d = '90' + d.slice(1);
+  else if (d.length === 10 && d.startsWith('5')) d = '90' + d;
+  return d;
+}
+function openWa(phone, text, label) {
+  const num = waPhone(phone);
+  // whatsapp:// şeması uygulamayı DOĞRUDAN açar — api.whatsapp.com ara açılış sayfası görünmez.
+  const appUrl = 'whatsapp://send?phone=' + num + (text ? '&text=' + encodeURIComponent(text) : '');
+  const bar = document.getElementById('waBar');
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <a href="${appUrl}" target="_top" rel="noopener" onclick="hideWaBar()">📲 ${label ? esc(label) + ' — ' : ''}WhatsApp'ı aç</a>
+    <button class="btn" onclick="hideWaBar()">✕</button>`;
+  try { window.location.href = appUrl; } catch (e) {}      // uygulamayı doğrudan aç
+}
+function hideWaBar() { document.getElementById('waBar').style.display = 'none'; }
+function waPick(itemId) {
+  if (!data.contacts.length) { toggleContacts(); flash('Önce 👥 kişi ekle'); return; }
+  const m = document.createElement('div');
+  m.className = 'wa-modal';
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div class="wa-box"><b>📲 Kime gönderilsin?</b>
+    ${data.contacts.map(c => `<button class="btn" onclick="waSend('${c.id}','${itemId}');this.closest('.wa-modal').remove()">${c.alias ? '<b>' + esc(c.alias) + '</b> · ' : ''}${esc(c.name)}</button>`).join('')}
+    <button class="btn" onclick="this.closest('.wa-modal').remove()">Vazgeç</button></div>`;
+  document.body.appendChild(m);
+}
+function waSend(contactId, itemId) {
+  const c = data.contacts.find(x => x.id === contactId);
+  const i = data.items.find(x => x.id === itemId);
+  if (c && i) openWa(c.phone, i.text.replace(/^📲\s*/, ''), c.alias || c.name);
+}
+
+// ---------- kaydet ----------
+const ta = () => document.getElementById('noteInput');
+function saveFromField() {
+  const raw = ta().value.trim();
+  if (!raw) return;
+  if (captureMode === 'wa') { captureMode = 'note'; saveWa(raw); return; }
+  // not modunda da "mesaj İSİM …" komutu çalışır
+  const cmd = raw.match(/^(?:mesaj|whatsapp|watsap|vatsap)\s+([\s\S]+)$/i);
+  if (cmd) { saveWa(cmd[1]); return; }
+  const p = parsePrio(raw);
+  data.items.push({ id: uid(), text: p.text, imp: p.imp, urg: p.urg, done: false, createdAt: new Date().toISOString() });
+  ta().value = '';
+  finalBuf = '';
+  touch(); render(); updateBtn();
+  flash(`✓ ${p.imp}${p.urg} kaydedildi${p.spoken ? '' : ' (önem söylenmedi → B2)'}`);
+  focusInput(); // sıradaki not için kutu hazır
+}
+// "İSİM [mesaj…]" → kayıt + WhatsApp'ı o kişiyle hazır aç (isim 1-3 kelime olabilir).
+// Dikte araçlarının eklediği virgül/nokta isim eşleşmesini bozmasın diye tokenlar temizlenir;
+// isim hiç eşleşmezse metnin TAMAMI mesaj sayılır ve kişi seçme penceresi açılır.
+function saveWa(raw) {
+  const clean = w => w.replace(/^[("'«]+|[.,!?;:)"'»]+$/g, '');
+  const words = raw.trim().replace(/^[\s,.:]+/, '').split(/\s+/);
+  let c = null, used = 1;
+  for (const n of [3, 2, 1]) {
+    if (words.length >= n) {
+      const cand = findContact(words.slice(0, n).map(clean).join(' '));
+      if (cand) { c = cand; used = n; break; }
+    }
+  }
+  // WhatsApp akışı listeye not düşmez — liste yalnızca to-do'lar içindir.
+  // İsim yalnızca alıcıyı seçer; söylenen metin (hitap dahil) AYNEN mesaj olur.
+  ta().value = ''; finalBuf = '';
+  updateBtn();
+  const p = parsePrio(raw); // sonda önem söylendiyse mesajdan ayıkla
+  if (!c) {
+    waPickMsg(p.text);
+    return;
+  }
+  openWa(c.phone, p.text, c.alias || c.name);
+  flash('✓ WhatsApp\'ta gönder\'e bas');
+}
+// kişi seçilince gönderilecek bekleyen mesaj
+let pendingMsg = null;
+function waPickMsg(text) {
+  pendingMsg = text;
+  if (!data.contacts.length) { toggleContacts(); flash('Önce 👥 kişi ekle'); return; }
+  const m = document.createElement('div');
+  m.className = 'wa-modal';
+  m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div class="wa-box"><b>📲 Kime gönderilsin?</b>
+    ${data.contacts.map(c => `<button class="btn" onclick="waSendMsg('${c.id}');this.closest('.wa-modal').remove()">${c.alias ? '<b>' + esc(c.alias) + '</b> · ' : ''}${esc(c.name)}</button>`).join('')}
+    <button class="btn" onclick="this.closest('.wa-modal').remove()">Vazgeç</button></div>`;
+  document.body.appendChild(m);
+}
+function waSendMsg(cid) {
+  const c = data.contacts.find(x => x.id === cid);
+  if (c) openWa(c.phone, pendingMsg || '', c.alias || c.name);
+}
+
+// ---------- ses tanıma (varsa) ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false, finalBuf = '';
+function initRec() {
+  const r = new SR();
+  r.lang = 'tr-TR'; r.continuous = true; r.interimResults = true;
+  r.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalBuf += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    ta().value = (finalBuf + interim).trim();
+    updateBtn();
+  };
+  r.onerror = e => {
+    listening = false; updateBtn();
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed')
+      flash('Mikrofon izni yok — alana Wispr Flow ile konuş');
+  };
+  r.onend = () => {
+    if (listening) { listening = false; updateBtn(); saveFromField(); }
+  };
+  return r;
+}
+let captureMode = 'note'; // 'note' = 🎤 Konuş, 'wa' = 📲 WhatsApp
+function bigTap(mode) {
+  if (listening) {
+    if (mode === captureMode) rec.stop(); // durdur → onend kaydeder
+    return;
+  }
+  captureMode = mode;
+  if (ta().value.trim()) { saveFromField(); return; } // yazılmışsa: basılan moda göre kaydet
+  if (SR) {
+    try { finalBuf = ''; rec = rec || initRec(); rec.start(); listening = true; updateBtn(); }
+    catch (e) { flash('Mikrofon başlatılamadı — alana yaz'); ta().focus(); }
+  } else {
+    ta().focus();
+    flash(mode === 'wa'
+      ? 'Ses tanıma yok — alana "İsim mesaj" yazıp 📲 WhatsApp\'a bas'
+      : 'Bu tarayıcıda ses tanıma yok — Wispr Flow klavyesiyle konuş');
+  }
+}
+const IC = {
+  mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/></svg>',
+  save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  stop: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>',
+  wa: '<span style="font-size:28px;font-weight:900;line-height:1">W</span>'
+};
+function updateBtn() {
+  const b = document.getElementById('bigBtn');
+  const w = document.getElementById('waBtn');
+  b.classList.remove('listening'); w.classList.remove('listening');
+  b.disabled = false; w.disabled = false;
+  if (listening) {
+    const active = captureMode === 'wa' ? w : b;
+    const other = captureMode === 'wa' ? b : w;
+    active.innerHTML = IC.stop;
+    active.classList.add('listening');
+    other.disabled = true;
+    other.innerHTML = captureMode === 'wa' ? IC.mic : IC.wa;
+    return;
+  }
+  b.innerHTML = ta().value.trim() ? IC.save : IC.mic;
+  w.innerHTML = IC.wa;
+}
+ta().addEventListener('input', updateBtn);
+ta().addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveFromField(); }
+});
+
+// ---------- liste ----------
+function toggleItem(id) {
+  const i = data.items.find(x => x.id === id);
+  i.done = !i.done;
+  i.doneAt = i.done ? new Date().toISOString() : null;
+  touch(); render();
+}
+function delItem(id) { data.items = data.items.filter(x => x.id !== id); touch(); render(); }
+function cycleImp(id) {
+  const i = data.items.find(x => x.id === id);
+  i.imp = i.imp === 'A' ? 'B' : i.imp === 'B' ? 'C' : 'A';
+  touch(); render();
+}
+function cycleUrg(id) {
+  const i = data.items.find(x => x.id === id);
+  i.urg = i.urg === 3 ? 1 : i.urg + 1;
+  touch(); render();
+}
+function editItem(id, ev) {
+  const i = data.items.find(x => x.id === id);
+  const el = ev.target.closest('.item').querySelector('.itext');
+  const input = document.createElement('input');
+  input.className = 'inline-input';
+  input.value = i.text;
+  el.replaceWith(input);
+  input.focus();
+  let fin = false;
+  const commit = () => {
+    if (fin) return; fin = true;
+    const v = input.value.trim();
+    if (v && v !== i.text) { i.text = v; touch(); }
+    render();
+  };
+  input.onkeydown = e => {
+    if (e.key === 'Enter') commit();
+    else if (e.key === 'Escape') { fin = true; render(); }
+  };
+  input.onblur = () => setTimeout(commit, 100);
+}
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) + ' ' +
+         d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+function render() {
+  const el = document.getElementById('itemsEl');
+  const items = data.items
+    .filter(i => showDone ? i.done : !i.done)
+    .sort((a, b) => prioRank(a) - prioRank(b) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+  el.innerHTML = items.length ? '' :
+    `<div class="empty">${showDone ? 'Henüz biten yok.' : 'Henüz bir şey yakalamadın.<br>Butona bas, söyle, sona önemini ekle — gerisi bende.'}</div>`;
+  items.forEach(i => {
+    const div = document.createElement('div');
+    div.className = 'item ' + tintClass(i) + (i.done ? ' done' : '');
+    div.innerHTML = `
+      <input type="checkbox" ${i.done ? 'checked' : ''} onchange="toggleItem('${i.id}')">
+      <div class="ibody">
+        <div class="itext" ondblclick="editItem('${i.id}',event)" title="Düzenlemek için çift tıkla">${esc(i.text)}</div>
+        <div class="imeta">${fmtTime(i.createdAt)}${i.imp === 'C' ? ' · <span class="delege">delege et!</span>' : ''}</div>
+      </div>
+      <span class="prio">
+        <button class="pb l" style="background:${prioColor(i.imp, i.urg)}" onclick="cycleImp('${i.id}')" title="Önem: A kritik · B önemli · C delege">${i.imp}</button>
+        <button class="pb r" style="background:${prioColor(i.imp, i.urg)}" onclick="cycleUrg('${i.id}')" title="Aciliyet: 1 hemen · 2 yakında · 3 esnek">${i.urg}</button>
+      </span>
+      <button class="edit wab" onclick="waPick('${i.id}')" title="WhatsApp ile gönder">📲</button>
+      <button class="edit" onclick="editItem('${i.id}',event)" title="Düzenle">✎</button>
+      <button class="del" onclick="delItem('${i.id}')" title="Sil">✕</button>`;
+    el.appendChild(div);
+  });
+  const act = data.items.filter(i => !i.done).length;
+  const done = data.items.length - act;
+  document.getElementById('countEl').textContent = `${act} aktif · ${done} bitti`;
+  document.getElementById('doneToggleBtn').textContent = showDone ? '← Aktiflere dön' : `Bitenleri göster (${done})`;
+  renderContacts();
+}
+function renderContacts() {
+  const el = document.getElementById('contactRows');
+  el.innerHTML = data.contacts.length ? '' : '<div class="hint">Henüz kişi yok — aşağıdan ekle.</div>';
+  data.contacts.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'c-row';
+    row.innerHTML = `
+      <span class="c-name">${esc(c.name)}</span>
+      ${c.alias ? `<span class="c-alias">"${esc(c.alias)}"</span>` : ''}
+      <span class="c-phone">${esc(c.phone)}</span>
+      <button class="del" onclick="delContact('${c.id}')" title="Sil">✕</button>`;
+    el.appendChild(row);
+  });
+}
+
+// ---------- senkron ----------
+function copyData() {
+  navigator.clipboard.writeText(JSON.stringify(data)).then(
+    () => flash('📋 kopyalandı'),
+    () => alert('Kopyalama başarısız — 📤 ile dosya olarak aktar.')
+  );
+}
+async function pasteData() {
+  let text = '';
+  try { text = await navigator.clipboard.readText(); } catch (e) {}
+  if (!text || !text.trim().startsWith('{')) text = prompt('Diğer cihazda kopyaladığın veriyi yapıştır:') || '';
+  if (!text.trim()) return;
+  try {
+    const d = JSON.parse(text);
+    if (!Array.isArray(d.items)) throw new Error('geçersiz format');
+    if (!confirm('Bu cihazdaki liste, yapıştırılanla DEĞİŞTİRİLECEK. Devam?')) return;
+    data = migrate(d);
+    save(); render();
+  } catch (e) { alert('Veri okunamadı: ' + e.message); }
+}
+async function shareData() {
+  const json = JSON.stringify(data, null, 2);
+  const file = new File([json], 'yakala-data.json', { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Yakala verisi' }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'yakala-data.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+render(); updateBtn();
+reconcile(); // IndexedDB yedeğini kontrol et — localStorage temizlenmişse veriyi geri getir
+
+// Açılışta ve uygulamaya her dönüşte yazı kutusu hazır olsun (klavye/dikte tek adım önde başlasın).
+// Not: iOS güvenlik gereği klavyeyi dokunuşsuz açtırmayabilir — o durumda kutu odaklı gelir, tek dokunuş yeter.
+function focusInput() {
+  const ob = document.getElementById('onboard');
+  if (ob && ob.classList.contains('show')) return; // tanıtım açıkken klavyeyi açma
+  try { ta().focus({ preventScroll: true }); } catch (e) { ta().focus(); }
+}
+// ---------- ilk kullanım tanıtımı ----------
+function showOnboard() { document.getElementById('onboard').classList.add('show'); }
+function closeOnboard() {
+  document.getElementById('onboard').classList.remove('show');
+  try { localStorage.setItem('yakala-onboarded', '1'); } catch (e) {}
+  focusInput();
+}
+try { if (!localStorage.getItem('yakala-onboarded')) showOnboard(); } catch (e) {}
+setTimeout(focusInput, 250);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { hideWaBar(); setTimeout(focusInput, 150); } });
+window.addEventListener('pageshow', () => { hideWaBar(); setTimeout(focusInput, 150); });
+
+// Emniyet kemeri: uygulama arka plana alınır / kapatılırken beklemedeki her kaydı
+// diske yaz (touch() zaten anında yazıyor; bu, olası son değişikliği de garantiler).
+function flushSave() { clearTimeout(saveTimer); data._savedAt = Date.now(); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {} idbSave(data); }
+window.addEventListener('beforeunload', flushSave);
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
+</script>
+</body>
+</html>
+
